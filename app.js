@@ -1,4 +1,5 @@
 // Item controller
+
 const ItemCtrl = (function () {
 
     const Item = function(id, meal, calories) {
@@ -18,76 +19,175 @@ const ItemCtrl = (function () {
         getData : function() {
             return data;
         },
+        // Set new input data into data structure
         setData : function(item) {
             item.id = data.items.length;
-            data.items.push(item);
-            data.totalCalories += item.calories;
+            const newItem = new Item(item.id, item.meal, item.calories);
+            data.items.push(newItem);
+            data.totalCalories += newItem.calories;
+        },
+        // Set the current item to the item to be edited
+        setCurrentItem : function(id) {
+            data.items.forEach((item) => {
+                if(item.id === id) {
+                    data.currentItem = item;
+                }
+            });
+            return data.currentItem;
         }
         }
 })();
 
 
+// Event controller
+
+const EventCtrl = (function() {
+
+    return {
+        listManager : function(e) {
+            // Check if target is edit link
+            if(e.target.parentNode.classList.contains('edit-item')) {
+                
+        
+                // Get the id of current item
+                const currentElementID = e.target.parentNode.parentNode.id;
+                const currentElementIDArr = currentElementID.split('-');
+                const currentItemID = parseInt(currentElementIDArr[1]);
+                const currentItem = ItemCtrl.setCurrentItem(currentItemID);
+        
+                // Show the edit state
+                UICtrl.showEditState(currentItem);
+            }
+        
+            e.preventDefault();
+        },
+        addNewMeal : function(e) {
+            //Update the list on user input
+            App.updateList();
+        
+            e.preventDefault();
+        },
+        selectInput : function(e) {
+            e.target.select();
+        }
+    }
+})();
+
+
+
 // UI controller
+
 const UICtrl = (function () {
     const uiSelectors = {
         itemList : '.list-group',
         mealInput : '#meal',
         calorieInput : '#calories',
-        totalCaloriesSpan : '#total-calories'
+        totalCaloriesSpan : '#total-calories',
+        hrSeperator : '#seperator',
+        addBtn : '.btn-add',
+        updateBtn : '.btn-update',
+        deleteBtn : '.btn-delete',
+        backBtn : '.btn-back'
     };
 
     return {
         // Get user input
         getInput : function() {
-            const mealInput = document.querySelector(uiSelectors.mealInput),
-                caloriesInput = document.querySelector(uiSelectors.calorieInput);
-            const meal = mealInput.value, calories = parseFloat(caloriesInput.value);
-            mealInput.value = caloriesInput.value = '';
+            const meal = document.querySelector(uiSelectors.mealInput).value,
+                calories = parseFloat(document.querySelector(uiSelectors.calorieInput).value);
+
             return {
                 meal,
                 calories
             };
         },
+        // Clear the input fields
+        clearInput : function() {
+            document.querySelector(uiSelectors.mealInput).value = '';
+            document.querySelector(uiSelectors.calorieInput).value = '';
+        },
         //Populate the list with items
         populateItems : function(data) {
-            let output = '';
-            data.items.forEach((item) => {
-                output += `<li class="list-group-item" id = "item-${item.id}"><strong>${item.meal} :</strong> <em>${item.calories} Calories</em>
-                <a href="#" class="float-right edit-item"><i class="fas fa-pen"></i></a>
-            </li>`
-            });
+            if(data.items.length === 0) {
+                document.querySelector(uiSelectors.hrSeperator).style.display = 'none';
+            } else {
+                let output = '';
+                document.querySelector(uiSelectors.hrSeperator).style.display = 'block';
+                data.items.forEach((item) => {
+                    output += `<li class="list-group-item" id = "item-${item.id}"><strong>${item.meal} :</strong> <em>${item.calories} Calories</em>
+                    <a href="#" class="float-right edit-item"><i class="fas fa-pen"></i></a>
+                </li>`
+                });
 
-            document.querySelector(uiSelectors.itemList).innerHTML = output;
-            document.querySelector(uiSelectors.totalCaloriesSpan).textContent = data.totalCalories;
+                document.querySelector(uiSelectors.itemList).innerHTML = output;
+                document.querySelector(uiSelectors.totalCaloriesSpan).textContent = data.totalCalories;
+            }
+        },
+        // Show edit state
+        showEditState : function(currentItem) {
+            // Show current item details in input fields
+            document.querySelector(uiSelectors.mealInput).value = currentItem.meal;
+            document.querySelector(uiSelectors.calorieInput).value = currentItem.calories;
+
+            // Show edit state buttons
+            document.querySelector(uiSelectors.addBtn).style.display = 'none';
+            document.querySelector(uiSelectors.updateBtn).style.display = 'inline';
+            document.querySelector(uiSelectors.deleteBtn).style.display = 'inline';
+            document.querySelector(uiSelectors.backBtn).style.display = 'inline';
+
+            // focus event listeners
+            document.querySelector(uiSelectors.mealInput).addEventListener('focus', EventCtrl.selectInput);
+            document.querySelector(uiSelectors.calorieInput).addEventListener('focus', EventCtrl.selectInput);
+        },
+        // Clear edit state
+        clearEditState : function() {
+            UICtrl.clearInput();
+            document.querySelector(uiSelectors.addBtn).style.display = 'block';
+            document.querySelector(uiSelectors.updateBtn).style.display = 'none';
+            document.querySelector(uiSelectors.deleteBtn).style.display = 'none';
+            document.querySelector(uiSelectors.backBtn).style.display = 'none';
+        },
+        getSelectors : function() {
+            return uiSelectors;
         }
     }
 })();
 
+
+
 // App controller
-const App = (function (UICtrl, ItemCtrl) {
+
+const App = (function () {
     
     return {
+        loadEventListeners : function() {
+            const uiSelectors = UICtrl.getSelectors();
+            // Add button event listener
+            document.querySelector(uiSelectors.addBtn).addEventListener('click', EventCtrl.addNewMeal);
+            // Event listener on list for delegation
+            document.querySelector(uiSelectors.itemList).addEventListener('click', EventCtrl.listManager);
+        },
         init : function() {
+            // Load event listeners
+            App.loadEventListeners();
+            // Clear edit state
+            UICtrl.clearEditState();
             const data = ItemCtrl.getData();
             UICtrl.populateItems(data);
         },
         updateList : function() {
             const item = UICtrl.getInput();
-            ItemCtrl.setData(item);
-            const data = ItemCtrl.getData();
-            console.log(data);
-            UICtrl.populateItems(data);
+            UICtrl.clearInput();
+            if(item.meal !== '' && item.calories !== '') {
+                ItemCtrl.setData(item);
+                const data = ItemCtrl.getData();
+                UICtrl.populateItems(data);
+            }
         }
     }
-})(UICtrl, ItemCtrl);
+})();
 
 App.init();
 
-//Update the list on user input
-document.querySelector('.btn-add').addEventListener('click', (e) => {
-    App.updateList();
-
-    e.preventDefault();
-})
 
 // Storage controller
