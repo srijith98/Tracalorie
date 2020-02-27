@@ -15,12 +15,13 @@ const ItemCtrl = (function () {
     };
 
     return {
-        getItems : function() {
-            return data.items;
+        getData : function() {
+            return data;
         },
-        setItems : function(item) {
+        setData : function(item) {
             item.id = data.items.length;
             data.items.push(item);
+            data.totalCalories += item.calories;
         }
         }
 })();
@@ -31,7 +32,8 @@ const UICtrl = (function () {
     const uiSelectors = {
         itemList : '.list-group',
         mealInput : '#meal',
-        calorieInput : '#calories'
+        calorieInput : '#calories',
+        totalCaloriesSpan : '#total-calories'
     };
 
     return {
@@ -47,15 +49,16 @@ const UICtrl = (function () {
             };
         },
         //Populate the list with items
-        populateItems : function(items) {
+        populateItems : function(data) {
             let output = '';
-            items.forEach((item) => {
+            data.items.forEach((item) => {
                 output += `<li class="list-group-item" id = "item-${item.id}"><strong>${item.meal} :</strong> <em>${item.calories} Calories</em>
                 <a href="#" class="float-right edit-item"><i class="fas fa-pen"></i></a>
             </li>`
             });
 
             document.querySelector(uiSelectors.itemList).innerHTML = output;
+            document.querySelector(uiSelectors.totalCaloriesSpan).textContent = data.totalCalories;
         }
     }
 })();
@@ -65,15 +68,15 @@ const App = (function (UICtrl, ItemCtrl) {
     
     return {
         init : function() {
-            const items = ItemCtrl.getItems();
-            UICtrl.populateItems(items);
+            const data = ItemCtrl.getData();
+            UICtrl.populateItems(data);
         },
         updateList : function() {
             const item = UICtrl.getInput();
-            ItemCtrl.setItems(item);
-            const items = ItemCtrl.getItems();
-            console.log(items);
-            UICtrl.populateItems(items);
+            ItemCtrl.setData(item);
+            const data = ItemCtrl.getData();
+            console.log(data);
+            UICtrl.populateItems(data);
         }
     }
 })(UICtrl, ItemCtrl);
