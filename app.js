@@ -1,3 +1,55 @@
+// Storage controller
+
+const StorageCtrl = (function() {
+
+
+    return {
+        storeItem : function(item) {
+            let items;
+            if(localStorage.getItem('items') === null) {
+                items = [];
+                items.push(item);
+                localStorage.setItem('items', JSON.stringify(items));
+            } else {
+                items = JSON.parse(localStorage.getItem('items'));
+                items.push(item);
+                localStorage.setItem('items', JSON.stringify(items));
+            }
+        },
+        getItemsFromLS : function() {
+            let items;
+            if(localStorage.getItem('items') === null) {
+                items = [];
+            } else {
+                items = JSON.parse(localStorage.getItem('items'));
+            }
+            return items;
+        },
+        updateItemInLS : function(updatedItem) {
+            items = JSON.parse(localStorage.getItem('items'));
+            items.forEach((item, index) => {
+                if(item.id === updatedItem.id) {
+                    items.splice(index, 1, updatedItem);
+                }
+            });
+            localStorage.setItem('items', JSON.stringify(items)); 
+        },
+        deleteItemFromLS : function(id) {
+            items = JSON.parse(localStorage.getItem('items'));
+            items.forEach((item, index) => {
+                if(item.id === id) {
+                    items.splice(index, 1);
+                }
+            });
+            localStorage.setItem('items', JSON.stringify(items)); 
+        },
+        clearAllItemsFromLS : function() {
+            localStorage.removeItem('items');
+        }
+    }
+})();
+
+
 // Item controller
 
 const ItemCtrl = (function () {
@@ -10,7 +62,7 @@ const ItemCtrl = (function () {
     
     // Data structures
     let data = {
-        items : [],
+        items : StorageCtrl.getItemsFromLS(),
         currentItem : null,
         totalCalories : 0
     };
@@ -24,7 +76,8 @@ const ItemCtrl = (function () {
             item.id = data.items.length;
             const newItem = new Item(item.id, item.meal, item.calories);
             data.items.push(newItem);
-            data.totalCalories += newItem.calories;
+            StorageCtrl.storeItem(newItem);
+            ItemCtrl.setTotalCalories();
         },
         // Set the current item to the item to be edited
         setCurrentItem : function(id) {
@@ -39,15 +92,24 @@ const ItemCtrl = (function () {
         editCurrentData : function(item) {
             data.currentItem.meal = item.meal;
             data.currentItem.calories = item.calories;
-            let total = 0;
-            data.items.forEach((item) => {
-                total += item.calories;
-            });
-            data.totalCalories = total
+            // Store update in LS
+            StorageCtrl.updateItemInLS(data.currentItem);
+            ItemCtrl.setTotalCalories();
         },
         removeCurrentItem : function() {
+            // Delete from storage
+            StorageCtrl.deleteItemFromLS(data.currentItem.id);
             data.items.splice(data.currentItem.id, 1);
             data.currentItem = null;
+            
+            ItemCtrl.setTotalCalories();
+        },
+        deleteAllItems : function() {
+            data.items.splice(0,);
+            data.currentItem = null;
+            data.totalCalories = 0
+        },
+        setTotalCalories : function() {
             let total = 0;
             data.items.forEach((item) => {
                 total += item.calories;
@@ -101,6 +163,11 @@ const EventCtrl = (function() {
         deleteEvent : function(e) {
             App.deleteCurrentItem();
             e.preventDefault();
+        },
+        clearAllEvent : function(e) {
+            App.clearAllItems();
+            StorageCtrl.clearAllItemsFromLS();
+            e.preventDefault();
         }
     }
 })();
@@ -119,7 +186,8 @@ const UICtrl = (function () {
         addBtn : '.btn-add',
         updateBtn : '.btn-update',
         deleteBtn : '.btn-delete',
-        backBtn : '.btn-back'
+        backBtn : '.btn-back',
+        clearBtn : '.clear-btn'
     };
 
     return {
@@ -143,17 +211,17 @@ const UICtrl = (function () {
             if(data.items.length === 0) {
                 document.querySelector(uiSelectors.hrSeperator).style.display = 'none';
             } else {
-                let output = '';
                 document.querySelector(uiSelectors.hrSeperator).style.display = 'block';
-                data.items.forEach((item) => {
-                    output += `<li class="list-group-item" id = "item-${item.id}"><strong>${item.meal} :</strong> <em>${item.calories} Calories</em>
-                    <a href="#" class="float-right edit-item"><i class="fas fa-pen"></i></a>
-                </li>`
-                });
-
-                document.querySelector(uiSelectors.itemList).innerHTML = output;
-                document.querySelector(uiSelectors.totalCaloriesSpan).textContent = data.totalCalories;
             }
+            let output = '';
+            data.items.forEach((item) => {
+                output += `<li class="list-group-item" id = "item-${item.id}"><strong>${item.meal} :</strong> <em>${item.calories} Calories</em>
+                <a href="#" class="float-right edit-item"><i class="fas fa-pen"></i></a>
+            </li>`
+            });
+
+            document.querySelector(uiSelectors.itemList).innerHTML = output;
+            document.querySelector(uiSelectors.totalCaloriesSpan).textContent = data.totalCalories;
         },
         // Show edit state
         showEditState : function(currentItem) {
@@ -204,12 +272,21 @@ const App = (function () {
             document.querySelector(uiSelectors.backBtn).addEventListener('click', EventCtrl.goBack);
             // Delete button event listener
             document.querySelector(uiSelectors.deleteBtn).addEventListener('click', EventCtrl.deleteEvent);
+            // Clear all button event listener
+            document.querySelector(uiSelectors.clearBtn).addEventListener('click', EventCtrl.clearAllEvent);
+            // Disable submit on enter
+            document.addEventListener('keypress', (e) => {
+                if(e.keyCode === 13 || e.which === 13) {
+                    e.preventDefault();
+                }
+            })
         },
         init : function() {
             // Load event listeners
             App.loadEventListeners();
             // Clear edit state
             UICtrl.clearEditState();
+            ItemCtrl.setTotalCalories();
             const data = ItemCtrl.getData();
             UICtrl.populateItems(data);
         },
@@ -236,11 +313,18 @@ const App = (function () {
             const data = ItemCtrl.getData();
             UICtrl.populateItems(data);
             UICtrl.clearEditState();
+        },
+        clearAllItems : function() {
+            const agreed = confirm('Are you sure?');
+            if (agreed) {
+                ItemCtrl.deleteAllItems();
+                const data = ItemCtrl.getData();
+                UICtrl.populateItems(data);
+                UICtrl.clearEditState();
+                document.querySelector('#seperator').style.display = 'none';
+            }
         }
     }
 })();
 
 App.init();
-
-
-// Storage controller
