@@ -34,6 +34,25 @@ const ItemCtrl = (function () {
                 }
             });
             return data.currentItem;
+        },
+        // Edit current item
+        editCurrentData : function(item) {
+            data.currentItem.meal = item.meal;
+            data.currentItem.calories = item.calories;
+            let total = 0;
+            data.items.forEach((item) => {
+                total += item.calories;
+            });
+            data.totalCalories = total
+        },
+        removeCurrentItem : function() {
+            data.items.splice(data.currentItem.id, 1);
+            data.currentItem = null;
+            let total = 0;
+            data.items.forEach((item) => {
+                total += item.calories;
+            });
+            data.totalCalories = total
         }
         }
 })();
@@ -69,6 +88,19 @@ const EventCtrl = (function() {
         },
         selectInput : function(e) {
             e.target.select();
+        },
+        updateItem : function(e) {
+            App.updateCurrentItem();
+
+            e.preventDefault();
+        },
+        goBack : function(e) {
+            UICtrl.clearEditState();
+            e.preventDefault();
+        },
+        deleteEvent : function(e) {
+            App.deleteCurrentItem();
+            e.preventDefault();
         }
     }
 })();
@@ -166,6 +198,12 @@ const App = (function () {
             document.querySelector(uiSelectors.addBtn).addEventListener('click', EventCtrl.addNewMeal);
             // Event listener on list for delegation
             document.querySelector(uiSelectors.itemList).addEventListener('click', EventCtrl.listManager);
+            // Update button event listener
+            document.querySelector(uiSelectors.updateBtn).addEventListener('click', EventCtrl.updateItem);
+            // Back button event listener
+            document.querySelector(uiSelectors.backBtn).addEventListener('click', EventCtrl.goBack);
+            // Delete button event listener
+            document.querySelector(uiSelectors.deleteBtn).addEventListener('click', EventCtrl.deleteEvent);
         },
         init : function() {
             // Load event listeners
@@ -183,6 +221,21 @@ const App = (function () {
                 const data = ItemCtrl.getData();
                 UICtrl.populateItems(data);
             }
+        },
+        updateCurrentItem : function() {
+            const item = UICtrl.getInput();
+            if(item.meal !== '' && item.calories !== '') {
+                ItemCtrl.editCurrentData(item);
+                const data = ItemCtrl.getData();
+                UICtrl.populateItems(data);
+            }
+            UICtrl.clearEditState();
+        },
+        deleteCurrentItem : function() {
+            ItemCtrl.removeCurrentItem();
+            const data = ItemCtrl.getData();
+            UICtrl.populateItems(data);
+            UICtrl.clearEditState();
         }
     }
 })();
